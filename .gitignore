@@ -1,5 +1,6 @@
-.xlsx
-.txt
+*.xlsx
+*.txt
 .idea
 __pycache__
-.db
+__init__.py
+*.db

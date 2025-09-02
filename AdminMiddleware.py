@@ -7,6 +7,7 @@ with open("doc/AdminID.txt") as file:
     ADMIN = int(file.read().strip())
 file.close()
 
+
 class AdminMiddleware(BaseMiddleware):
     async def __call__(self,
                        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],

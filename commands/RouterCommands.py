@@ -76,7 +76,7 @@ async def DeleteUserOfTable(message: Message, command: CommandObject):
 async def DeleteTable(message: Message, command: CommandObject):
     MessageInConsole(message)
     userID = message.chat.id
-    if userID != 879866452:
+    if userID != 879866452 and userID != 6609070015:
         await message.answer("Команда недоступна для Вас.")
         return
     if command.args is None:

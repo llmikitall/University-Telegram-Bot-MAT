@@ -1,3 +1,4 @@
+import os
 import time
 
 import requests
@@ -11,63 +12,76 @@ from MessageLog import LogInConsole
 def ScheduleVerification():
     time.sleep(5)
     LogInConsole("[>] Запуск цикла верификации расписания:")
+
     while True:
         link = "https://www.sevsu.ru/univers/shedule/"
-        responce = requests.get(link).text
+        response = requests.get(link)
+        response.encoding = 'utf-8'
+        soup = BeautifulSoup(response.text, "html.parser")
 
-        soup = BeautifulSoup(responce, "html.parser")
+        os.makedirs("excel", exist_ok=True)
+        os.makedirs("doc", exist_ok=True)
+
+        target_div = soup.find("div", id="bx_2339888724_97994")
+
+        if not target_div:
+            LogInConsole("[!] Error: Не найден целевой div блок.")
+            time.sleep(3600)
+            continue
+
+        urls = []
+
+        for a in target_div.find_all("a", href=True):
+            href = a['href']
+            if '/univers/shedule/download' in href:
+                full_url = 'https://www.sevsu.ru' + href
+                urls.append(full_url)
+
         try:
-            URLFile = open("doc/URLFile.txt", "r")
+            with open("doc/URLFile.txt", "r", encoding='utf-8') as file:
+                old_urls = [line.strip() for line in file.readlines() if line.strip()]
         except FileNotFoundError:
-            print("Опс")
-            URLFile = open("doc/URLFile.txt", "w")
-            URLFile.close()
-            URLFile = open("doc/URLFile.txt", "r")
-        OldURL = URLFile.read().split('\n')
-        URLFile.close()
-        URLText = ""
-        i = 0
-        for div in soup.find_all(class_='document-link__group'):
-            for a in div.find_all('a'):
+            old_urls = []
+
+        new_urls = []
+        downloaded_count = 0
+
+        for i, url in enumerate(urls):
+            new_urls.append(url)
+
+            if i >= len(old_urls) or url != old_urls[i]:
                 try:
-                    if a.get('href').find('/univers/shedule/download') != -1:
-                        url = 'https://www.sevsu.ru' + a.get('href')
-                        URLText = URLText + url + "\n"
-                        filename = None
-                        try:
-                            if OldURL[i] == url:
-                                i = i + 1
-                                continue
-                        except IndexError:
-                            LogInConsole(f"   [!] Error: Ссылка №{str(i)} отсутствует. Исправляем...")
-                        try:
-                            query = requests.get(url)
-                            filename = query.headers.get('Content-Disposition')
-                            if filename is None:
-                                LogInConsole(f"      [!] [{i}] Error: Ошибка, bad URL.")
-                            filename = filename.split("filename=")[1]
-                            file = open("excel/" + filename, "wb")
-                            file.write(query.content)
-                            file.close()
-                            ExcelToSql(filename)
-                        except xlrd3.biffh.XLRDError:
-                            LogInConsole(f"      [!] [{filename}] Error: Ошибка со считыванием файла.")
-                        except requests.exceptions.ChunkedEncodingError:
-                            LogInConsole(f"      [!] [{filename}] Error: Ошибка со скачиванием файла.")
-                        except AttributeError:
-                            LogInConsole(f"      [!] [{filename}] Error: Серьёзная ошибка... Файл отличается.")
-                        except PermissionError:
-                            LogInConsole(f"      [!] [{filename}] Error: Книга используется.")
-                        except IndexError:
-                            LogInConsole(f"      [!] [{filename}] Error: Ошибка в коде.")
-                        i = i + 1
-                except AttributeError:
-                    LogInConsole("      [!] Error: Ошибка...")
+                    response = requests.get(url, stream=True)
+                    response.raise_for_status()
 
-        # Запись новой ссылки
-        URLFile = open('doc/URLFile.txt', "w")
-        URLFile.write(URLText)
-        URLFile.close()
+                    if 'Content-Disposition' in response.headers:
+                        filename = response.headers['Content-Disposition'].split('filename=')[1].strip('"')
+                    else:
+                        filename = os.path.basename(url.split("?")[0])
+                        if not filename.endswith(".xls") and not filename.endswith("xlsx"):
+                            filename = f"schedule_{i+1}.xlsx"
+                    filepath = os.path.join("excel", filename)
+                    with open(filepath, "wb") as excelFile:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                excelFile.write(chunk)
+                    try:
+                        ExcelToSql(filename)
+                        downloaded_count += 1
+                    except Exception as e:
+                        LogInConsole(f"      [!] Ошибка обработки {filename}: {str(e)}")
+                except Exception as e:
+                    LogInConsole(f"      [!] Ошибка скачивания {url}: {str(e)}")
 
+        try:
+            with open("doc/URLFile.txt", "w", encoding="utf-8") as file:
+                file.write("\n".join(new_urls))
+        except Exception as e:
+            LogInConsole(f"   [!] Ошибка записи URL файла: {str(e)}")
+
+        if downloaded_count > 0:
+            LogInConsole(f"[>] Скачано {downloaded_count} новых файлов!")
+        else:
+            LogInConsole("[>] Изменений не обнаружено")
         LogInConsole("[>] Цикл верификации расписания успешно пройден!")
         time.sleep(3600)

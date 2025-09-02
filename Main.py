@@ -23,7 +23,6 @@ from structures import (StartCommand, EnterGroup0, Menu1, EnterDate2, Setting3, 
                         EnterLesson5, EnterGrouping6, EnterIcons7, EnterEnglishSubgroup8, EnterFormatToday9,
                         EnterFormatDate10, EnterTeacher11, EnterTeacherDate12)
 
-
 with open("doc/BotToken.txt") as file:
     TOKEN = file.read().strip()
 file.close()
@@ -55,9 +54,10 @@ async def main():
     logging.basicConfig(stream=sys.stdout)
     await UpdateBot(False)
     # Запуск верификации Расписания.
-    await StartVerification(False)
+    await StartVerification(True)
     LogInConsole("[>] Запуск успешно произведён!")
     await DP.start_polling(bot)
+
 
 async def StartVerification(boolean):
     if boolean:
@@ -96,11 +96,12 @@ async def UpdateBot(boolean):
             try:
                 emojiID = int(SearchAny(List[i][0], "userOfSetting", "emojiID"))
                 await bot.send_message(List[i][0], text)
-                await bot.send_sticker(List[i][0],stickerList[emojiID])
+                await bot.send_sticker(List[i][0], stickerList[emojiID])
                 LogInConsole(f"{List[i][0]} -> Получил сообщение.")
             except aiogram.exceptions.TelegramForbiddenError:
                 LogInConsole("Error: Пользователь заблокировал бота.")
                 DeleteUser(List[i][0])
+
 
 if __name__ == "__main__":
     LogInConsole("[>] Запуск MAIN...")

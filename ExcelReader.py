@@ -6,11 +6,11 @@ import xlrd3 as xlrd
 from MessageLog import LogInConsole
 
 
-def ExcelToSql(index):
+def ExcelToSql(filename):
     # Открываем книгу, с которой работаем
     t1 = time.time()
-    LogInConsole(f"   [>] [{index}] Идёт считывание книги.")
-    book = xlrd.open_workbook("excel/" + index)
+    LogInConsole(f"   [>] [{filename}] Идёт считывание книги.")
+    book = xlrd.open_workbook("excel/" + filename)
 
     # countList - int - количество листов в Excel файле.
     countList = book.nsheets
@@ -126,16 +126,16 @@ def ExcelToSql(index):
                             try:
                                 # Добавляем в базу данных всю полученную информацию. И увеличиваем счётчик-индекс
                                 dataBase1.append(
-                                    (index, str(counter), Group, week[6:], date, number, lesson, group,
+                                    (filename, str(counter), Group, week[6:], date, number, lesson, group,
                                      teacher[0], teacher[1], teacher[2], cabinet, typeL))
                             except IndexError:
                                 if len(teacher) == 2:
                                     dataBase1.append(
-                                        (index, str(counter), Group, week[6:], date, number, lesson, group,
+                                        (filename, str(counter), Group, week[6:], date, number, lesson, group,
                                          teacher[0], teacher[1], "", cabinet, typeL))
                                 else:
                                     dataBase1.append(
-                                        (index, str(counter), Group, week[6:], date, number, lesson, group,
+                                        (filename, str(counter), Group, week[6:], date, number, lesson, group,
                                          teacher[0], "", "", cabinet, typeL))
                                 LogInConsole(f"{Group}, {date}, {lesson}, {teacher}: ошибка с преподавателем.")
 
@@ -151,7 +151,7 @@ def ExcelToSql(index):
 
                             # Добавляем в базу данных всю полученную информацию. И увеличиваем счётчик-индекс
                             dataBase1.append(
-                                (index, str(counter), Group, week[6:], date, number, lesson, group,
+                                (filename, str(counter), Group, week[6:], date, number, lesson, group,
                                  teacher[0], teacher[1], teacher[2], cabinet, typeL))
                             counter = counter + 1
 
@@ -163,7 +163,7 @@ def ExcelToSql(index):
 
                             # Исключение из правил... Там была ошибка из-за него. Решить нужно в следующий раз.
                             if 'Обработка изображений и ' in cell:
-                                LogInConsole(f"Найдена старая возможная ошибка: \n Книга: {index};\n Номер: {counter};"
+                                LogInConsole(f"Найдена старая возможная ошибка: \n Книга: {filename};\n Номер: {counter};"
                                              f"\n Изначальный текст в ячейке: {cell};")
                                 cell = [f"{cell[0]}{cell[1]}"]
                                 LogInConsole(f" Изменённый текст в ячейке: {cell}")
@@ -220,18 +220,18 @@ def ExcelToSql(index):
                                     group = "-"
                                 # Добавляем в базу данных всю полученную информацию. И увеличиваем счётчик-индекс
                                 dataBase1.append(
-                                    (index, str(counter), Group, week[6:], date, number, lesson, group,
+                                    (filename, str(counter), Group, week[6:], date, number, lesson, group,
                                      teacher[0], teacher[1], teacher[2], cabinet, typeL))
                                 counter = counter + 1
                                 if not (any(text[2] in Group for text in dataBase2)):
-                                    dataBase2.append((index, str(counter2), Group, "-", "-", "-", "-", "-"))
+                                    dataBase2.append((filename, str(counter2), Group, "-", "-", "-", "-", "-"))
                                     counter2 = counter2 + 1
                                 if group != "-":
                                     if ((((not (any(text[3] == lesson for text in dataBase2))) or
                                         not (any(text[4] == group for text in dataBase2))) or
                                         not (any(text[2] == Group for text in dataBase2))) and
                                             not (") " in lesson)):
-                                        dataBase2.append((index, str(counter2), Group, lesson, group,
+                                        dataBase2.append((filename, str(counter2), Group, lesson, group,
                                                           teacher[0], teacher[1], teacher[2]))
                                         counter2 = counter2 + 1
                     # Переходим к следующему, по номеру, уроку
@@ -263,12 +263,12 @@ def ExcelToSql(index):
     cur = con.cursor()
     # Скачивания всей таблицы в original - list.
     try:
-        cur.execute('SELECT * FROM groupList WHERE book = (?)', [index])
+        cur.execute('SELECT * FROM groupList WHERE book = (?)', [filename])
     except sqlite3.OperationalError:
         LogInConsole("   [<] Error: Таблица groupList отсутствовала. Пересоздаю...")
         from sql.CreateTables import CreateTableGroupList
         CreateTableGroupList()
-        cur.execute('SELECT * FROM groupList WHERE book = (?)', [index])
+        cur.execute('SELECT * FROM groupList WHERE book = (?)', [filename])
     original = cur.fetchall()
     # Цикл 'i' - Для сравнения dateBase1 с original.
     for i in range(len(dataBase2)):
@@ -287,12 +287,12 @@ def ExcelToSql(index):
     # Сохранить базу данных.
     con.commit()
     try:
-        cur.execute('SELECT * FROM scheduleList WHERE book = (?)', [index])
+        cur.execute('SELECT * FROM scheduleList WHERE book = (?)', [filename])
     except sqlite3.OperationalError:
         LogInConsole("   [<] Error: Таблица scheduleList отсутствовала. Пересоздаю...")
         from sql.CreateTables import CreateTableScheduleList
         CreateTableScheduleList()
-        cur.execute('SELECT * FROM scheduleList WHERE book = (?)', [index])
+        cur.execute('SELECT * FROM scheduleList WHERE book = (?)', [filename])
     original = cur.fetchall()
     # Цикл 'i' - Для сравнения dateBase1 с original.
     for i in range(len(dataBase1)):
@@ -315,4 +315,4 @@ def ExcelToSql(index):
     con.commit()
     con.close()
     t1 = time.time() - t1
-    LogInConsole(f"   [>] [{index}] Успешно считано за {t1} миллисекунд!")
+    LogInConsole(f"   [>] [{filename}] Успешно считано за {t1} миллисекунд!")
